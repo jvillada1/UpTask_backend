@@ -1,0 +1,79 @@
+import mongoose, {Schema, Document, Types} from "mongoose";
+import Note from "./Note";
+
+const taskStatus = { 
+    PENDING: 'pending', 
+    ON_HOLD: 'onHold',  
+    IN_PROGRESS: 'inProgress', 
+    UNDER_REVIEW: 'underReview', 
+    COMPLETE: 'completed'
+
+} as const  
+
+export type TaskStatusType = typeof taskStatus[keyof typeof taskStatus]
+
+export interface ITask extends Document { //tipo de typescript
+    name: string 
+    description: string 
+    project: Types.ObjectId 
+    status: TaskStatusType, 
+    completedBy: { 
+        user: Types.ObjectId, 
+        status: TaskStatusType
+    }[] 
+    notes:Types.ObjectId[]
+}  
+
+export const TaskSchema: Schema = new Schema({ 
+    name:{ 
+        type: String,  
+        trim: true,
+        required: true
+    }, 
+    
+    description:{ 
+        type: String,  
+        trim: true,
+        required: true
+    }, 
+
+    project:{ 
+        type: Types.ObjectId, 
+        ref: 'Project'
+    }, 
+    status:{ 
+        type: String,  
+        enum: Object.values(taskStatus), 
+        default: taskStatus.PENDING
+
+    }, 
+    completedBy: [
+        { 
+            user: {
+                type: Types.ObjectId, 
+                ref: 'User', 
+                default: null
+            }, 
+            status: { 
+                type: String,  
+                enum: Object.values(taskStatus), 
+                default: taskStatus.PENDING
+            }
+        }
+    ], 
+    notes: [  
+        { 
+          type: Types.ObjectId, 
+          ref:'Note'  
+        }
+
+    ]
+}, {timestamps: true})
+
+// al eliminar una tarea se eliminan sus notas
+TaskSchema.pre('deleteOne', {document: true, query: false}, async function() {
+    await Note.deleteMany({task: this._id})
+})
+
+const Task = mongoose.model<ITask>('Task', TaskSchema)
+export default Task
